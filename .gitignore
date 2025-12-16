@@ -2,5 +2,6 @@
 !*.md
 !*.c
 !*.txt
+!*.pdf
 !.gitignore
 !*/

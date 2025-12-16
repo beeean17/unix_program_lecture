@@ -1,0 +1,2371 @@
+--- /home/vboxuser/Desktop/unix_program_lecture/slides/lecture6.txt ---
+
+Environment of a Process
+
+main Function
+main()
+int main(int argc, char *argv[]);
+argc : the number of command-line arguments
+argv : an array of pointers to the arguments
+
+when a C program is started by the kernel, a
+special start-up routine is called before the
+main() is called.
+the start-up routine takes values from the
+kernel (the command-line arguments and the
+environment) and sets things up.
+2
+
+Process Termination
+normal termination
+return from main
+calling exit
+calling _exit
+
+abnormal termination
+calling abort
+terminated by a signal
+
+3
+
+Process Termination
+exit( )
+#include <stdlib.h> 
+void exit(int status);
+causes normal program termination and the
+value of status is returned to the parent
+All functions registered with atexit() and on_exit()
+are called in the reverse order of their
+registration
+all open streams are flushed and closed.
+
+4
+
+Process Termination
+atexit( )
+#include <stdlib.h> 
+int atexit(void (*function)(void));
+registers the given function to be called at normal
+program termination
+no arguments are passed
+up to 32 functions can be registered
+returns the value 0 if successful; otherwise the
+value -1 is returned
+
+5
+
+Process Termination
+on_exit( )
+#include <stdlib.h> 
+int on_exit(void (*function)(int , void *), void
+*arg);
+registers the given function to be called at
+normal program termination, whether via exit( )
+or via return from the program's main.
+The function is passed the argument to exit( )
+and the arg argument from on_exit()
+The integer argument of function is the exit
+status.
+6
+
+Process Termination
+_exit( )
+#include <unistd.h> 
+void _exit(int status);
+terminates the calling process immediately
+Any open file descriptors belonging to the process
+are closed
+status is returned to the parent process as the
+process's exit status
+
+7
+
+Process Termination
+#include <stdio.h> 
+#include <stdlib.h> 
+void exit1(void)
+{
+puts("exit1");
+}
+void exit2(void)
+{
+puts("exit2");
+}
+main()
+{
+atexit(exit1);
+atexit(exit2);
+exit(3);
+}
+
+8
+
+Start and Termination of a C program
+
+9
+
+Environment List
+environment list
+extern char **environ; 
+int main(int argc, char *argv[], char *envp[])
+each environment consists of “name=value”
+used to go through the entire environment.
+
+10
+
+Environment List
+
+11
+
+Memory Layout of a C Program
+
+12
+
+Process Image
+TEXT
+etext
+DATA(INITIALIZED)
+edata
+DATA(UNINITIALIZED)
+end
+HEAP
+
+USER AREA
+STACK
+
+13
+
+Process Image
+TEXT
+user가 작성한 instruction들이 들어 가는 영역이다.
+text는 항상 같은 virtual address에 load된다.
+text는 공유될 수도 있고 안 될 수도 있지만 default는 공유된다
+
+DATA
+
+static variable과 global variable을 저장한다.
+DATA segment 부분은 initialized global variable을 가지는 initialized
+data 부분과 uninitialized global variable을 저장하는 uninitialized data부
+분으로 나뉜다.
+
+STACK
+stack 부분은 local variable, function의 argument, function의 return
+value를 저장한다
+data의 끝부분과 stack의 제일 윗부분 사이를 reference하면 memory fault
+가 발생한다.
+HEAP
+malloc(), calloc() 등의 인터페이스로 동적 할당되는 부분
+
+USER AREA
+
+OS의 주소공간
+process가 수행 중일 때만 필요한 정보를 가지고 있다.
+open file list
+
+14
+
+Process Image
+main()
+#include <stdio.h> 
+{
+#include <stdlib.h> 
+static int c=10;
+extern etext,edata,end;
+static int d;
+int *dynamic;
+char a='a';
+printf("end of text %p\n", &etext);
+int b=1;
+printf("addr of a : %p :%c\n",&a,a);
+int e;int f;
+printf("addr of b : %p :%d\n",&b,b);
+int func(int arg)
+printf("addr of c : %p :%d\n",&c,c);
+{
+printf("end of initialized data %p\n", &edata);
+int f=10;
+printf("addr of d : %p :%d\n",&d,d);
+printf("addr of arg : %p:%d\n",
+&arg,arg);
+printf("addr of e : %p :%d\n",&e,e);
+printf("addr of f : %p :%d\n",&f,f);
+printf("addr of f : %p :%d\n",&f,f);
+}
+printf("end of uninitialized data %p\n", &end);
+func(5);
+dynamic=(int *)malloc(8);
+*dynamic=100;
+15
+printf("addr of dynamic : %p :%d\n",dynamic,*dynamic);
+}
+
+Shared Libraries
+shared libraries
+remove the common library routine somewhere
+in memory that all processes reference
+the executable file does not contain the library
+object code, but only a reference to the library
+name.
+when the program is loaded, program
+interpreter (ld.so)
+analyzes the library names in the executable file
+locates the library in the system’s directory tree
+makes the requested code available to the
+executing process.
+16
+
+Memory Allocation
+library functions
+#include <stdlib.h> 
+void *calloc(size_t nmemb, size_t size);
+allocates memory for an array of nmemb
+elements of size bytes each
+returns a pointer to the allocated memory
+The memory is set to zero
+
+void *malloc(size_t size);
+allocates size bytes and returns a pointer to the
+allocated memory
+The memory is not cleared
+17
+
+Memory Allocation
+void *realloc(void *ptr, size_t size);
+changes the size of the memory block pointed to
+by ptr to size bytes
+The contents will be unchanged to the minimum
+of the old and new sizes
+newly allocated memory will be uninitialized
+If ptr is NULL, the call is equivalent to
+malloc(size)
+if size is equal to zero, the call is equivalent to
+free(ptr)
+
+void free(void *ptr);
+}
+
+frees the memory space pointed to by ptr
+18
+
+Memory Allocation
+void *alloca( size_t size);
+allocates size bytes of space in the stack frame
+of the caller
+this temporary space is automatically freed on
+return
+
+return value
+returns a pointer to the allocated memory on
+success
+the returned pointer of realloc may be different
+from ptr which is passed to realloc as an
+argument
+returns NULL if the request fails
+19
+
+Memory Allocation
+system calls
+#include <unistd.h> 
+int brk(void *end_data_segment);
+sets the end of the data segment to the value
+specified by end_data_segment
+end_data_segment must be greater than end of
+the text segment and it must be 16kB before the
+end of the stack
+On success, brk returns zero
+On error, -1 is returned
+20
+
+Memory Allocation
+void *sbrk(ptrdiff_t increment);
+C library wrapper(actually, not a system call)
+increments the program's data space by
+increment bytes
+returns a pointer to the start of the new area
+On error, -1 is returned
+
+brk and sbrk should not be used with malloc,
+calloc, realloc
+
+21
+
+Memory Allocation
+example
+main()
+{
+char *p;
+printf(“before malloc: %p\n”, sbrk(0));
+p = malloc(4096);
+printf(“after malloc: %p\n”, sbrk(0));
+free(p);
+printf(“after free: %p\n”, sbrk(0));
+}
+
+22
+
+Environment Variables
+getenv( ) and putenv( )
+#include <stdlib.h> 
+char *getenv(const char *name);
+searches the environment list for a string that
+matches the string pointed to by name
+returns a pointer to the value in the environment, 
+or NULL if there is no match
+
+23
+
+Environment Variables
+int putenv(const char *string);
+adds or changes the value of environment
+variables
+The argument string is of the form name=value
+If name does not already exist in the
+environment, then string is added to the
+environment
+If name does exist, then the value of name in the
+environment is changed to value
+returns zero on success, or -1 if an error occurs
+
+24
+
+Environment Variables
+setenv( ) and unsetenv( )
+#include <stdlib.h> 
+int setenv(const char *name, const char *value,
+int overwrite);
+adds the variable name to the environment with
+the value value, if name does not already exist
+If name does exist in the environment, then its
+value is changed to value if overwrite is non-zero; 
+if overwrite is zero, then the value of name is not
+changed.
+
+void unsetenv(const char *name);
+deletes the variable name from the environment
+25
+
+Environment Variables
+example
+#include <stdio.h> 
+#include <stdlib.h> 
+main()
+{
+printf(“Home directory is %s\n",
+getenv("HOME"));
+putenv("HOME=/");
+printf("New home directory is %s\n",
+getenv("HOME"));
+}
+26
+
+setjmp and longjmp
+setjmp( ) and longjmp( )
+#include <setjmp.h> 
+int setjmp(jmp_buf env);
+useful for dealing with errors and interrupts
+encountered in a low-level subroutine of a
+program
+saves the stack context/environment in env for
+later use by longjmp()
+The stack context will be invalidated if the
+function which called setjmp() returns
+return 0 if returning directly, and non-zero when
+returning from longjmp() using the saved context
+27
+
+setjmp and longjmp
+void longjmp(jmp_buf env, int val);
+restores the environment saved by the last call of
+setjmp() with the corresponding env argument
+After longjmp() is completed, program execution
+continues as if the corresponding call of setjmp()
+had just returned the value val
+cannot cause 0 to be returned.
+If longjmp is invoked with a second argument of
+0, 1 will be returned instead.
+
+28
+
+setjmp and longjmp
+#include <setjmp.h> 
+#include <stdio.h> 
+#include <stdlib.h> 
+static void
+f1(int, int, int);
+static void
+f2(void);
+static jmp_buf
+jmpbuffer;
+int main(void)
+{
+int count;
+register int val;
+volatile int sum;
+count = 2; val = 3; sum = 4;
+if (setjmp(jmpbuffer) != 0) {
+printf("after longjmp:
+count= %d,val=%d,sum=%d\n",
+count, val, sum);
+exit(0);
+}
+
+count = 97; val = 98; sum = 99;
+/* changed after setjmp, before longjmp
+*/
+f1(count, val, sum); /* never returns
+*/
+}
+static void f1(int i, int j, int k)
+{
+printf("in f1(): count = %d, val = %d,
+sum = %d\n", i, j, k);
+f2();
+}
+static void f2(void)
+{
+longjmp(jmpbuffer, 1);}
+$ gcc testjmp.c
+$ gcc –O testjmp.c
+
+29
+
+Resource Limit and Usage
+getrlimit( ) and setrlimit( )
+#include <sys/time.h> 
+#include <sys/resource.h> 
+#include <unistd.h> 
+int getrlimit (int resource, struct rlimit *rlim);
+int setrlimit (int resource, const struct rlimit
+*rlim);
+30
+
+Resource Limit and Usage
+resource
+RLIMIT_CPU /* CPU time in seconds
+(SIGXCPU)*/
+RLIMIT_FSIZE /* Maximum filesize
+(SIGXFSZ)*/
+RLIMIT_DATA /* max data size */
+RLIMIT_STACK /* max stack size */
+RLIMIT_CORE /* max core file size */
+RLIMIT_RSS /* max resident set size */
+if physical memory is tight, the kernel takes
+memory from processes that exceed their RSS
+31
+
+Resource Limit and Usage
+RLIMIT_NPROC /* max number of processes
+per real user ID*/
+RLIMIT_NOFILE /* max number of open files
+per process*/
+
+rlim
+struct rlimit
+{
+int rlim_cur; /* soft limit: current limit */
+int rlim_max; /* hard limit: maximum value for rlim_cur */
+};
+
+RLIM_INFINITY : resource is unlimited
+32
+
+Resource Limit and Usage
+getrusage( )
+#include <sys/time.h> 
+#include <sys/resource.h> 
+#include <unistd.h> 
+int getrusage (int who, struct rusage *usage);
+who : RUSAGE_SELF, RUSAGE_CHILDREN
+
+33
+
+Resource Limit and Usage
+struct rusage
+{
+struct timeval ru_utime; /* user time used */
+struct timeval ru_stime; /* system time used */
+long ru_maxrss; /* maximum resident set size */
+long ru_ixrss; /* integral shared memory size */
+long ru_idrss; /* integral unshared data size */
+long ru_isrss; /* integral unshared stack size */
+long ru_minflt;
+/* page reclaims */
+long ru_majflt;
+/* page faults */
+long ru_nswap;
+/* swaps */
+
+34
+
+Resource Limit and Usage
+long ru_inblock;
+/* block input operations */
+long ru_oublock;
+/* block output operations */
+long ru_msgsnd;
+/* messages sent */
+long ru_msgrcv;
+/* messages received */
+long ru_nsignals
+/* signals received */
+long ru_nvcsw;
+/* voluntary context switches */
+long ru_nivcsw; /* involuntary context switches */
+};
+
+35
+
+--- /home/vboxuser/Desktop/unix_program_lecture/slides/lecture7.txt ---
+
+Process Control
+
+Process Identifiers
+process id
+
+every process has a unique process ID
+often used as a piece of their identifiers, to
+guarantee uniqueness
+#include <unistd.h> 
+pid_t getpid(void);
+
+returns the process ID of the current process
+
+pid_t getppid(void);
+
+returns the process ID of the parent of the
+current process
+2
+
+Process Identifiers
+pid_t getuid(void);
+
+returns the real user ID of the current process
+
+pid_t geteuid(void);
+
+returns the effective user ID of the current
+process
+
+gid_t getgid(void);
+
+returns the real group ID of the current process
+
+gid_t getegid(void);
+
+returns the effective group ID of the current
+process
+3
+
+Init Processes
+init
+
+pid 1
+invoked by the kernel at the end of the
+bootstrap procedure
+/sbin/init
+is responsible for bringing up the system after
+the kernel has been bootstrapped
+
+reads /etc/rc* brings the system to a certain state
+
+init is a normal user process with superuser
+privileges
+
+4
+
+fork( )
+synopsis
+
+#include <sys/types.h> 
+#include <unistd.h> 
+pid_t fork(void);
+
+description
+
+the only way a new process is created is when
+an existing process calls the fork( ) system call
+the new process created by fork is called the
+child process
+5
+
+fork( )
+fork( ) is called once but returns twice
+parent : pid of child process
+child : 0
+
+both the child and parent continue executing
+with the instruction that follows the call to
+fork( )
+the child is a copy of parent
+
+child gets a copy of the parent’s data space, heap,
+and stack
+often the parent and child share the text segment
+6
+
+fork( )
+copy-on-write
+
+regions shared by the parent and child have their
+protection changed by the kernel read-only
+if either process tries to modify these regions, the
+kernel then makes a copy of that piece of memory
+only
+the only penalty incurred by fork
+the time and memory required to duplicate the
+parent's page tables
+the time to create a unique task structure for the
+child
+
+7
+
+fork( )
+the child process inherit the following from the
+parent
+
+real-uid(gid), effective-uid(gid), supplementary
+gid
+process group id, session id, controlling terminal
+set-user(group)-id flag
+current working directory, root directory, umask
+signal mask and dispositions
+close-on-exec flags
+environment
+resource limits
+8
+
+fork( )
+differences between the parent and child
+
+the return value from fork
+PID and PPID
+child’s resource utilizations are set to 0
+pending alarms are cleared for the child
+the set of pending signals for the child is set to
+the empty set
+
+we never know if the child starts executing
+before the parent or vice versa
+
+depends on the scheduling algorithm used by the
+kernel
+9
+
+fork( )
+#include <sys/types.h> 
+#include <unistd.h> 
+#include <stdio.h> 
+main()
+{
+pid_t pid;
+printf("Hello, my pid is %d\n", getpid());
+if ((pid = fork()) == 0) {
+/* child process */
+printf("child: pid = %d, ppid = %d\n", getpid(), getppid());
+} else {
+/* parent process */
+printf("parent: I created child with pid=%d\n",pid);
+}
+/* Following line is executed by both parent and child */
+printf("Bye, my pid is %d\n", getpid());
+}
+
+10
+
+fork( )
+example2
+else if (pid == 0) {
+/* child */
+#include <sys/types.h> 
+glob++;
+/* modify variables */
+#include <unistd.h> 
+var++;
+#include <stdio.h> 
+}
+int glob = 6;
+else sleep(2);
+/* parent */
+char
+buf[] = "a write to stdout\n";
+int main(void)
+printf("pid = %d, glob = %d, var = %d\n",
+{
+getpid(), glob, var);
+int var;
+exit(0);
+pid_t pid;
+}
+var = 88;
+if (write(STDOUT_FILENO, buf, sizeof(buf)-1) !=sizeof(buf)-1) {
+perror("write error");
+exit(1);
+}
+printf("before fork\n"); /* we don't flush stdout */
+if ( (pid = fork()) < 0) {
+perror("fork error");
+exit(1);
+}
+11
+
+fork( )
+file sharing
+
+when we redirect the standard output of the
+parent, the child’s standard output is also
+redirected
+all descriptors that are open in the parent are
+duplicated in the child
+
+cases for handling the descriptors after a fork
+the parent waits for the child to complete
+
+the parent does not need to do anything with its
+descriptors
+when the child terminates, any of the shared
+descriptors that the child read from or wrote to
+will have their file offsets updated accordingly
+12
+
+fork( )
+the parent and child each go their own way
+
+after the fork, the parent closes the descriptors
+that it doesn’t need and the child does the same
+thing
+this way neither interferes with the other’s open
+descriptors
+this scenario is often the case with network
+servers
+
+13
+
+fork( )
+parent file descriptor table
+fd flags
+
+ptr
+file table
+
+inode table
+
+R, 0
+child file descriptor table
+fd flags
+
+W, 40
+ptr
+
+14
+
+fork( )
+two main reasons for fork to fail
+
+if there are already too many processes in the
+system
+if the total number of processes for this real user
+ID exceeds the system’s limit
+
+two uses for fork
+
+a process wants to duplicate itself
+
+parent and child can each execute different
+sections of code at the same time
+common for network server
+
+a process wants to execute a different program
+
+common for shells
+the child does an exec( ) right after it returns from
+the fork( )
+15
+
+vfork( )
+synopsis
+
+#include <unistd.h> 
+#include <sys/types.h> 
+pid_t vfork(void);
+
+description
+
+same calling sequence and same return values
+as fork( )
+semantic of vfork( ) differs from fork( )
+intended to create a new process when the
+purpose of the new process is to exec( ) a new
+program
+
+16
+
+vfork( )
+vfork( ) creates the new process just like fork( ),
+without fully copying the address space of the
+parent into the child
+the child just calls exec( ) or exit( ) right after the
+vfork( )
+while the child is running, until it calls either
+exec( ) or exit( ), the child runs in the address
+space of the parent
+provides an efficiency gain
+
+vfork( ) guarantees that the child runs first, until
+the child calls exec( ) or exit( )
+17
+
+vfork( )
+example
+#include<sys/types.h>
+#include<unistd.h>
+#include<stdio.h>
+int
+ g = 6;
+int main(void)
+{
+int
+ var;
+pid_t pid;
+var = 88;
+printf("before vfork\n");
+/* we don't flush stdio */
+if ( (pid = vfork()) < 0) {
+perror("vfork error");
+exit(1);
+}
+
+}
+
+else if (pid == 0) {
+/* child */
+g++;
+/* modify parent's variables */
+var++;
+_exit(0);
+/* child terminates */
+}
+/* parent */
+printf("pid = %d, g = %d, var = %d\n",
+getpid(), g, var);
+exit(0);
+
+18
+
+Process Termination
+termination status
+
+terminating process notify its parent how it
+terminated
+normal termination
+
+pass an exit status as argument to exit( ) or
+_exit( )
+return value from main( )
+exit status is converted into a termination status
+by the kernel when _exit( ) is finally called
+
+19
+
+Process Termination
+abnormal termination
+
+the kernel generates a termination status to
+indicate the reason for the abnormal termination
+
+the parent of the terminated process can obtain
+the termination status from either wait( ) or
+waitpid( )
+init process becomes the parent process of any
+process whose parent terminates (inherited by
+init)
+
+20
+
+Process Termination
+zombie state
+
+the kernel has to keep a certain amount of
+information consists of PID, the termination
+status of the process, and the amount of CPU
+time taken by the process
+the process that has terminated, but whose
+parent has not yet waited for it, is called a zombie
+init is written so that whenever one of its
+children terminates, init calls one of the wait
+functions to fetch the termination status
+init prevents the system from being clogged by
+zombies
+21
+
+wait( ) and waitpid( )
+synopsis
+
+#include <sys/types.h> 
+#include <sys/wait.h> 
+pid_t wait(int *status)
+pid_t waitpid(pid_t pid, int *status, int options);
+
+description
+
+wait for process termination
+22
+
+wait( ) and waitpid( )
+pid_t wait(int *status)
+
+suspends execution of the current process until a
+child has exited, or until a signal is delivered
+whose action is to terminate the current process
+or to call a signal handling function
+if a child has already exited by the time of the
+call (a so-called "zombie" process), the function
+returns immediately
+if the caller blocks and has multiple children, 
+wait returns when one terminates
+
+23
+
+wait( ) and waitpid( )
+we can always tell which child terminated
+because the process ID is returned by the
+function
+Any system resources used by the child are freed
+status
+if not NULL, wait store status
+information(termination status) in the location
+pointed to by status
+
+macros
+
+WIFEXITED(status)
+is non-zero if the child exited normally.
+
+24
+
+wait( ) and waitpid( )
+WEXITSTATUS(status)
+evaluates to the least significant eight bits of
+the return code of the child which terminated, which may have been set as the argument
+to a call to exit() or as the argument for a
+return
+This macro can only be evaluated if
+WIFEXITED returned non-zero
+WIFSIGNALED(status)
+returns true if the child process exited
+because of a signal which was not caught
+
+25
+
+wait( ) and waitpid( )
+WTERMSIG(status)
+returns the number of the signal that caused
+the child process to terminate
+This macro can only be evaluated if
+WIFSIGNALED returned non-zero.
+
+pid_t waitpid(pid_t pid, int *status, int options);
+waitpid doesn’t wait for the first child to
+terminate - it has a number of options that
+control which process it waits for
+pid < -1
+
+wait for any child process whose process group ID
+is equal to the absolute value of pid
+26
+
+wait( ) and waitpid( )
+pid == -1
+
+wait for any child process
+same behaviors which wait( ) exhibits
+
+pid == 0
+
+wait for any child process whose process group ID
+is equal to that of the calling process
+
+pid > 0
+
+wait for the child whose process ID is equal to the
+value of pid
+
+27
+
+wait( ) and waitpid( )
+option
+
+an OR of zero or more of the following constants
+WNOHANG
+return immediately if no child has exited
+WUNTRACED
+also return for children which are stopped,
+and whose status has not been reported
+
+28
+
+wait( ) and waitpid( )
+macros
+
+WIFSTOPPED(status)
+returns true if the child process which caused
+the return is currently stopped
+this is only possible if the call was done using
+WUNTRACED.
+WSTOPSIG(status)
+returns the number of the signal which
+caused the child to stop
+this macro can only be evaluated if
+WIFSTOPPED returned non-zero
+
+29
+
+wait( ) and waitpid( )
+return value
+
+The process ID of the child which exited
+-1 on error
+zero if WNOHANG was used and no child was
+available
+
+30
+
+wait( ) and waitpid( )
+example1
+
+#include <sys/types.h> 
+#include <sys/wait.h> 
+#include <unistd.h> 
+#include <stdio.h> 
+main()
+{
+pid_t pid;
+int status;
+if ((pid = fork()) == 0) {
+/* child process */
+printf("I am a child\n");
+exit(123);
+}
+/* parent process */
+pid = wait(&status);
+printf("parent: child(pid = %d) is terminated with status (%d)\n", pid,
+WEXITSTATUS(status));
+}
+
+31
+
+wait( ) and waitpid( )
+example2
+#include <stdio.h> 
+#include <sys/wait.h> 
+#include <sys/types.h> 
+main()
+{
+pid_t pid;
+int status;
+if ((pid = fork()) == 0) { /* child */
+printf("I am a child with pid = %d\n", getpid());
+sleep(60);
+printf("child terminates\n");
+exit(0);
+}
+else {
+/* parent */
+while (1) {
+waitpid(pid, &status, WUNTRACED);
+if (WIFSTOPPED(status)) {
+printf("child stopped, signal(%d)\n", WSTOPSIG(status));
+continue;
+
+32
+
+wait( ) and waitpid( )
+else if (WIFEXITED(status))
+printf("normal termination with status(%d)\n", WEXITSTATUS(status));
+else if (WIFSIGNALED(status))
+printf("abnormal termination, signal(%d)\n", WTERMSIG(status));
+exit(0);
+}
+}
+}
+$ a.out & 
+$ kill -STOP <child pid> 
+$ kill -CONT <child pid> 
+$ a.out & 
+$ kill -KILL <child pid>
+
+33
+
+wait( ) and waitpid( )
+example3
+#include<sys/types.h>
+#include<sys/wait.h>
+#include<unistd.h>
+#include<stdio.h>
+void err_sys(char *s)
+{
+perror(s);
+exit(1);
+}
+int main(void)
+{
+pid_t pid;
+if ( (pid = fork()) < 0)
+err_sys("fork error");
+else if (pid == 0) {
+/* first child */
+
+if ( (pid = fork()) < 0)
+err_sys("fork error");
+else if (pid > 0)
+exit(0);
+sleep(2);
+printf("second child, parent pid = %d\n",
+getppid());
+exit(0);
+}
+if (waitpid(pid, NULL, 0) != pid)
+/* wait for first child */
+err_sys("waitpid error");
+exit(0);
+}
+34
+
+exec Functions
+synopsis
+
+#include <unistd.h> 
+extern char **environ;
+int execl( const char *path, const char *arg, ...);
+int execv( const char *path, char *const argv[]);
+int execle ( const char *path, const char *arg , ..., 
+char * const envp[]);
+int execve (const char *path, char *const argv[],
+char *const envp[]);
+
+35
+
+exec Functions
+int execlp( const char *file, const char *arg, ...);
+int execvp( const char *file, char *const argv[]);
+
+36
+
+exec Functions
+description
+
+execute program
+
+when a process calls one of the exec functions, 
+that process is completely replaced by the new
+program
+the new program starts executing at its main( )
+function
+exec merely replaces the current process (text,
+data, stack) with a brand new program from disk
+
+37
+
+exec Functions
+execve is a system call
+
+execl, execv, execle, execlp, execvp are front-ends
+for the function execve( )
+
+pathname(filename)
+
+the initial argument for these functions is the
+pathname(filename) of a file which is to be
+executed.
+execl, execv, execle, execve take a pathname
+argument
+
+38
+
+exec Functions
+execlp, execvp take a filename argument
+
+if filename contains a slash, it is taken as a
+pathname
+otherwise, the executable file is searched for in the
+directories specified by the PATH environment
+variable
+if PATH isn't specified, the default path
+``:/bin:/usr/bin'' is used
+if permission is denied for a file (the attempted
+execve returned EACCES), these functions will
+continue searching the rest of the search path
+
+39
+
+exec Functions
+argument list
+
+the const char *arg and subsequent ellipses in
+the execl, execlp, and execle functions can be
+thought of as arg0, arg1, ..., argn
+together they describe a list of one or more
+pointers to null-terminated strings that
+represent the argument list available to the
+executed program
+the first argument, by convention, should point to
+the file name associated with the file being
+executed
+40
+
+exec Functions
+the list of arguments must be terminated by a
+NULL pointer
+
+example
+
+execl("/bin/ls", "ls", "-al", 0);
+
+41
+
+exec Functions
+argument vector
+
+execv, execve and execvp provide an array of
+pointers to null-terminated strings that represent
+the argument list available to the new program
+the first argument, by convention, should point to
+the file name associated with the file being
+executed
+the array of pointers must be terminated by a
+NULL pointer
+
+example
+
+char *argv[3] = {"ls", "-al", 0};
+execv("/bin/ls", argv);
+42
+
+exec Functions
+environment variable
+
+execve and execle specifies the environment of the
+executed process by following the NULL
+pointer that terminates the list of arguments in
+the parameter list or the pointer to the argv
+array with an additional parameter
+this additional parameter is an array of pointers
+to null-terminated strings and must be
+terminated by a NULL pointer
+the other functions take the environment for the
+new process image from the external variable
+environ in the current process
+43
+
+exec Functions
+example
+
+char *env[2] = {"TERM=vt100", 0};
+execle("/bin/ls", "ls", 0, env);
+
+44
+
+exec Functions
+
+execlp
+
+execl
+
+build argv
+
+execvp
+
+try each
+PATH perfix
+
+execle
+
+build argv
+
+execv
+
+build argv
+use
+environ
+
+execve
+
+45
+
+exec Functions
+example
+#include
+<sys/types.h>
+#include
+<sys/wait.h>
+int main(void)
+{
+pid_t pid;
+if ( (pid = fork()) < 0)
+printf("fork error");
+else if (pid == 0) {
+/* child */
+printf("Child : %d\n", getpid());
+if (execl("/usr/bin/ls", "ls", “-aCF", 0) < 0)
+printf("execl error");
+}
+
+}
+
+printf("Parent : %d\n", getpid());
+if (waitpid(pid, NULL, 0) < 0) /* parent */
+printf("waitpid error");
+exit(0);
+
+46
+
+exec Functions
+properties that the new program inherits
+
+pid, ppid, real-user(group)-id, supplementary gids
+process group id, session id, controlling terminal
+time left until alarm clock
+current working directory, root directory, umask
+process signal mask
+pending signals
+resource limits
+
+any signals set to be caught by the calling
+process are reset to their default behavior
+
+47
+
+Change uid and gid
+setuid( ) and setgid( )
+#include <unistd.h> 
+int setuid(uid_t uid)
+
+sets the effective user ID of the current process
+superuser process sets all three user ID to uid
+nonsuperuser process can set effective user ID to
+uid, only when uid equals real user ID or the
+saved set-user-ID
+in any other cases, setuid returns error
+
+int setgid(gid_t gid)
+
+48
+
+Change uid and gid
+
+exec
+
+setuid(uid)
+
+ID
+suid bit off
+real UID
+effective UID
+
+save set-UID
+
+unchanged
+unchanged
+
+suid bit on
+
+unchanged
+set from user
+ID of program
+file
+copied from copied from
+euid
+euid
+
+supersuer
+
+other users
+
+uid
+uid
+
+unchanged
+uid
+
+uid
+
+unchanged
+
+49
+
+Change uid and gid
+setreuid( ) and seteuid( )
+
+#include <unistd.h> 
+int setreuid(uid_t ruid, uid_t euid);
+
+sets real and effective user ID's of the current
+process
+Un-privileged users may change the real user ID
+to the effective user ID and vice-versa
+it is also possible to set the effective user ID from
+the saved user ID
+
+50
+
+Change uid and gid
+Supplying a value of -1 for either the real or
+effective user ID forces the system to leave that
+ID unchanged
+If the real user ID is changed or the effective user
+ID is set to a value not equal to the previous real
+user ID, the saved user ID will be set to the new
+effective user ID
+
+int seteuid(uid_t euid);
+
+seteuid(euid) is functionally equivalent to
+setreuid(-1, euid)
+
+51
+
+Change uid and gid
+setuid-root program wishing to temporarily drop
+root privileges, assume the identity of a non-root
+user, and then regain root privileges afterwards
+cannot use setuid
+can accomplish this with seteuid
+
+int setregid(gid_t rgid, gid_t egid);
+int setegid(gid_t egid);
+
+52
+
+Change uid and gid
+int setfsuid(uid_t fsuid);
+
+sets the user ID that the Linux kernel uses to
+check for all accesses to the file system
+setfsuid will only succeed
+
+if the caller is the superuser
+if fsuid matches either the real user ID, effective
+user ID, saved set-user-ID, or the current value of
+fsuid
+
+int setfsgid(gid_t fsgid);
+
+53
+
+System Function
+synopsis
+
+#include <stdlib.h> 
+int system (const char * string);
+
+description
+
+executes a command specified in string by
+calling /bin/sh -c string, and returns after the
+command has been completed
+during execution of the command, SIGCHLD
+will be blocked, and SIGINT and SIGQUIT
+will be ignored
+54
+
+System Function
+return value
+
+The value returned is 127 if the execve() call for
+/bin/sh fails
+-1 if there was another error
+return code of the command otherwise
+If the value of string is NULL, system() returns
+nonzero if the shell is available, and zero if not
+system() does not affect the wait status of any
+other children (waitpid)
+
+55
+
+User Identification
+synopsis
+
+#include <unistd.h> 
+char *getlogin(void);
+
+description
+
+returns a pointer to a string containing the
+name of the user logged in on the controlling
+terminal of the process.
+returns a null pointer if this information cannot
+be determined.
+The string is statically allocated
+56
+
+User Identification
+used when a single user has multiple login
+names
+
+it is possible to use different login shell for each
+login name with multiple login names
+can’t determine login name with
+getpwuid(getuid())
+
+57
+
+--- /home/vboxuser/Desktop/unix_program_lecture/slides/lecture8.txt ---
+
+Signal
+
+Signal Concepts
+signal
+
+software interrupts
+provides a way of handling asynchronous events
+the kernel may send signals to process or
+processes may send each other signals with kill( )
+system call
+
+2
+
+Signals
+signals for terminating processes
+SIGHUP
+
+This signal is sent to the controlling process
+associated with a controlling terminal if a
+disconnect is detected by the terminal interface.
+This signal is also generated if the session leader
+terminates. In this case the signal is sent to each
+process in the foreground process group.
+
+3
+
+Signals
+signals for terminating processes
+SIGHUP (cont’d)
+
+This signal is commonly used to notify daemon
+processes to reread their configuration files. The
+reason SIGHUP is chosen for this is because a
+daemon should not have a controlling terminal
+and would normally never receive this signal.
+default action: termination
+
+4
+
+Signals
+signals for terminating processes
+SIGINT
+
+sending of the interrupt character from the
+terminal [CTRL-C]
+termination
+
+SIGQUIT
+
+sending of the quit character from the terminal
+[CTRL-\]
+termination with core
+
+5
+
+Signals
+SIGABRT, SIGIOT
+
+abnormal termination (abort( )), hardware fault
+termination
+
+SIGKILL
+
+irrevocable termination signal
+termination
+
+SIGTERM
+
+default signal sent out by the kill command
+termination
+
+6
+
+Signals
+signals triggered by a particular physical
+circumstance
+SIGILL
+
+illegal instruction
+termination
+
+SIGTRAP
+
+breakpoint in a program (system call ptrace)
+termination with core
+
+SIGBUS
+
+bus error
+termination
+7
+
+Signals
+SIGFPE
+
+arithmetic error (floating point exception)
+termination
+
+SIGSEGV
+
+memory address invalid
+termination with core
+
+SIGSTKFLT
+
+maths co-processor stack overflow (only in the
+Intel architecture)
+termination
+8
+
+Signals
+signals available for use by the programmer
+SIGUSR1, SIGUSR2
+termination
+
+signal generated when a pipe is closed
+SIGPIPE
+
+pipe without reader
+termination
+
+9
+
+Signals
+suspending or resuming
+SIGCHLD, SIGCLD
+
+termination of child process
+ignore
+
+SIGCONT
+
+repetition in the foreground or background of the
+process
+resume execution if it is stopped
+
+SIGSTOP
+
+suspension of process
+suspension (non-changeable)
+10
+
+Signals
+SIGTSTP
+
+sending out of suspension character from the
+terminal [CTRL-Z]
+suspension
+
+SIGTTIN
+
+terminal read for a background process
+suspension
+
+SIGTTOU
+
+writing to a terminal for a background process
+suspension
+11
+
+Signals
+linked to resources
+SIGXCPU
+
+CPU time limit exceeded
+termination
+
+SIGXFSZ
+
+file size limit exceeded
+termination
+
+management of alarms
+SIGALRM
+
+end of timer ITIMER_REAL or alarm()
+termination
+12
+
+Signals
+SIGVTALRM
+
+end of timer ITIMER_VIRTUAL
+termination
+
+SIGPROF
+
+end of timer ITIMER_PROF
+termination
+
+management of inputs and outputs
+SIGWINCH
+
+change of window size (used by X11)
+ignore
+13
+
+Signals
+SIGIO, SIGPOLL
+
+data available for an input/output
+termination
+
+SIGURG
+
+urgent data for sockets
+ignore
+
+fault with the power supply
+SIGPWR, SIGINFO
+power fault
+termination
+
+14
+
+Handling Singal
+default action (SIG_DFL)
+ignore the signal (SIG_IGN)
+catch the signal
+
+register signal handler
+SIGKILL and SIGSTOP cannot be caught or
+ignored
+
+15
+
+signal( )
+synopsis
+
+#include <signal.h> 
+void (*signal(int signum, void (*handler)(int)))(int);
+
+description
+
+installs a new signal handler for the signal with
+number signum
+the signal handler is set to handler which may be a
+user specified function, or one of the following:
+
+16
+
+signal( )
+SIG_IGN : Ignore the signal.
+SIG_DFL : Reset the signal to its default
+behavior
+
+The integer argument that is handed over to the
+signal handler routine is the signal number
+it possible to use one signal handler for several
+signals
+return value
+the previous value of the signal handler, or
+SIG_ERR on error
+
+17
+
+signal( )
+Example
+
+#include
+<signal.h>
+void myhandler(int signo)
+/* argument is signal number */
+{
+switch (signo) {
+case SIGINT : printf("SIGINT(%d) is caught\n",SIGINT);
+break;
+case SIGQUIT : printf("SIGQUIT(%d) is caught\n",SIGQUIT);
+break;
+case SIGTSTP : printf("SIGTSTP(%d) is caught\n",SIGTSTP);
+break;
+case SIGTERM : printf("SIGTERM(%d) is caught\n",SIGTERM);
+break;
+case SIGUSR1 : printf("SIGUSR1(%d) is caught\n",SIGUSR1);
+break;
+default: printf("other singal\n");
+}
+return;
+}
+18
+
+signal( )
+int main(void)
+{
+signal(SIGINT, myhandler);
+// signal(SIGINT, SIG_IGN);
+signal(SIGQUIT, myhandler);
+signal(SIGTSTP, myhandler);
+// signal(SIGTERM, SIG_DFL);
+signal(SIGTERM, myhandler);
+signal(SIGUSR1, myhandler);
+for (;;)
+pause();
+}
+
+19
+
+signal( )
+#include
+<sys/types.h>
+#include
+<signal.h>
+#include
+<stdio.h>
+void sig_cld();
+int main()
+{
+pid_t pid;
+if (signal(SIGCLD, sig_cld) == -1)
+perror("signal error");
+
+}
+
+if ( (pid = fork()) < 0)
+perror("fork error");
+else if (pid == 0) {
+/* child */
+sleep(2);
+_exit(0);
+}
+pause();
+/* parent */
+exit(0);
+
+void sig_cld()
+{
+pid_t pid;
+int
+status;
+printf("SIGCLD received\n");
+if (signal(SIGCLD, sig_cld) == -1)
+/* reestablish handler */
+perror("signal error");
+if ( (pid = wait(&status)) < 0)
+/* fetch child status */
+perror("wait error");
+printf("pid = %d\n", pid);
+return;
+/* interrupts pause() */
+}
+20
+
+Interrupted System Calls
+characteristic of earlier UNIX systems
+
+if a process caught a signal while the process
+was blocked in a “slow” system call, the system
+call was interrupted.
+errno == EINTR
+
+slow system calls
+
+read from pipe, terminal, network devices
+write to pipe, terminal, network devices
+pause(), wait()
+certain ioctl() operations
+some of IPC functions
+21
+
+Interrupted System Calls
+automatic restarting
+
+sometimes we don’t know that the input or
+output device is a slow device
+ioctl, read, readv, write, writev, wait, waitpid
+
+22
+
+Reentrant Functions
+_exit
+abort
+access
+alarm
+chdir
+chmod
+chown
+close
+creat
+dup
+dup2
+execve
+exit
+fcntl
+
+fork
+fstat
+getegid
+geteuid
+getgid
+getgroups
+getpgrp
+getpid
+getppid
+getuid
+kill
+link
+longjmp
+lseek
+
+mkdir
+mkfifo
+open
+pathconf
+pause
+pipe
+read
+rename
+rmdir
+setgid
+setpgid
+setsid
+setuid
+sigaction
+
+sigaddset
+sigdelset
+sigemptyset
+sigfillset
+sigismember
+signal
+sigpending
+sigprocmask
+sigsuspend
+sleep
+stat
+sysconf
+tcgetpgrp
+tcsetpgrp
+
+time
+times
+umask
+uname
+unlink
+utime
+wait
+waitpid
+write
+
+23
+
+SIGCLD (SIGCHLD) Semantics
+SIG_IGN
+
+children of the calling process will not generate
+zombie processes.
+on termination the status of child processes is
+just discarded.
+wait() returns –1, errno == ECHILD
+
+catch
+
+the kernel immediately checks if there are any
+child process ready to be waited and, if so, calls
+the SIGCHLD handler.
+
+24
+
+kill( )
+synopsis
+
+#include <sys/types.h> 
+#include <signal.h> 
+int kill(pid_t pid, int sig);
+
+description
+
+used to send any signal to any process group or
+process
+
+25
+
+kill( )
+pid > 0
+
+signal sig is sent to pid
+
+pid == 0
+
+sig is sent to every process in the process group of
+the current process
+
+pid == –1 (broadcast)
+
+sig is sent to every process except for the first one
+(init) from higher numbers in the process table to
+lower
+
+pid < -1
+
+sig is sent to every process in the process group pid
+
+26
+
+kill( )
+sig is 0
+
+no signal is sent, but error checking is still
+performed
+
+return value
+
+On success, zero is returned
+On error, -1 is returned
+
+27
+
+raise( )
+synopsis
+
+#include <signal.h> 
+int raise (int sig);
+
+description
+
+sends a signal to the current process
+kill(getpid( ),sig)
+return value
+0 on success, nonzero for failure
+
+28
+
+alarm( )
+synopsis
+
+#include <unistd.h> 
+unsigned int alarm(unsigned int seconds);
+
+description
+
+arranges for a SIGALRM signal to be delivered
+to the process in seconds seconds.
+if seconds is zero, no new alarm is scheduled
+in any event any previously set alarm is
+cancelled
+
+29
+
+alarm( )
+return value
+
+the number of seconds remaining until any
+previously scheduled alarm was due to be
+delivered
+zero if there was no previously scheduled alarm
+
+30
+
+Interval Timer
+synopsis
+
+#include <sys/time.h> 
+int getitimer(int which, struct itimerval *value);
+int setitimer(int which, const struct itimerval
+*value, struct itimerval *ovalue);
+
+description
+
+the system provides each process with three
+interval timers, each decrementing in a distinct
+time domain.
+when any timer expires, a signal is sent to the
+process, and the timer (potentially) restarts.
+
+31
+
+Interval Timer
+time domain (which)
+ITIMER_REAL
+
+decrements in real time (SIGALRM)
+
+ITIMER_VIRTUAL
+
+decrements only when the process is executing
+(SIGVTALRM)
+
+ITIMER_PROF
+
+decrement both when the process executes and
+when the system is executing on behalf of the
+process (SIGPROF)
+
+32
+
+Interval Timer
+time value (value)
+
+struct itimerval {
+struct timeval it_interval; /* next value */
+struct timeval it_value; /* current value */
+}
+struct timeval {
+long tv_sec; /* seconds */
+long tv_usec; /* microseconds */
+}
+
+timer decrement from it_value to zero,
+generate a signal, and reset to it_interval.
+a timer which is set to zero stops
+timer resolution is 10ms
+
+33
+
+pause( )
+synopsis
+
+#include <unistd.h> 
+int pause(void);
+
+description
+
+causes the invoking process to sleep until a
+signal is received
+return value
+always returns -1
+
+34
+
+abort( )
+synopsis
+
+#include <stdlib.h> 
+void abort(void);
+
+description
+
+causes abnormal program termination unless
+the signal SIGABRT is caught and the signal
+handler does not return
+if the abort( ) function causes program
+termination, all open streams are closed
+and flushed
+
+35
+
+abort( )
+If the SIGABRT signal is blocked or ignored, the
+abort( ) function will still override it.
+return value
+The abort() function never returns.
+
+36
+
+sleep( )
+synopsis
+
+#include <unistd.h> 
+unsigned int sleep(unsigned int seconds);
+
+description
+
+makes the current process sleep until seconds
+seconds have elapsed or a signal arrives which
+is not ignored
+return value
+zero if the requested time has elapsed, or the
+number of seconds left to sleep
+
+37
+
+POSIX signal functions
+signal set
+
+#include <signal.h> 
+int sigemptyset(sigset_t *set);
+int sigfillset(sigset_t *set);
+int sigaddset(sigset_t *set, int signum);
+int sigdelset(sigset_t *set, int signum);
+int sigismember(const sigset_t *set, int signum);
+
+38
+
+POSIX signal functions
+description
+
+sigemptyset( )
+
+initializes the signal set given by set to empty, 
+with all signals excluded from the set.
+
+sigfillset( )
+
+initializes set to full, including all signals.
+
+sigaddset( ) and sigdelset( )
+
+add and delete respectively signal signum from
+set.
+
+sigismember( )
+
+tests whether signum is a member of set
+
+39
+
+POSIX signal functions
+return value
+
+sigemptyset, sigfillset, sigaddset and sigdelset
+return 0 on success and -1 on error
+sigismember returns 1 if signum is a member of
+set, 0 if signum is not a member, and -1 on error
+
+40
+
+POSIX signal functions
+synopsis
+
+#include <signal.h> 
+int sigaction(int signum, const struct sigaction
+*act, struct sigaction *oldact);
+int sigprocmask(int how, const sigset_t *set, 
+sigset_t *oldset);
+int sigpending(sigset_t *set);
+int sigsuspend(const sigset_t *mask);
+
+41
+
+POSIX signal functions
+description
+
+sigaction( )
+
+change the action taken by a process on receipt of
+a specific signal
+signum
+
+specifies the signal and can be any valid signal
+except SIGKILL and SIGSTOP
+
+If act is non-null, the new action for signal
+signum is installed from act.
+If oldact is non-null, the previous action is saved
+in oldact
+42
+
+POSIX signal functions
+sigaction structure
+struct sigaction {
+void (*sa_handler)(int);
+sigset_t sa_mask;
+int sa_flags;
+void (*sa_restorer)(void);
+}
+
+sa_handler
+
+specifies the action to be associated with signum
+and may be SIG_DFL for the default action,
+SIG_IGN to ignore this signal, or a pointer to a
+signal handling function
+43
+
+POSIX signal functions
+sa_mask
+
+gives a mask of signals which should be blocked
+during execution of the signal handler
+In addition, the signal which triggered the
+handler will be blocked, unless the SA_NODEFER
+or SA_NOMASK flags are used
+
+sa_flags
+
+specifies a set of flags which modify the behavior of
+the signal handling process
+It is formed by the bitwise OR of zero or more of
+the following:
+
+44
+
+POSIX signal functions
+SA_NOCLDSTOP
+If signum is SIGCHLD, do not receive
+notification when child processes stop
+SA_ONESHOT or SA_RESETHAND
+Restore the signal action to the default state
+once the signal handler has been called.
+SA_RESTART
+Provide behavior compatible with BSD
+signal semantics by making certain system
+calls restartable across signals.
+
+45
+
+POSIX signal functions
+SA_NOMASK or SA_NODEFER
+Do not prevent the signal from being received
+from within its own signal handler
+
+sa_restorer
+
+is obsolete and should not be used.
+
+sigprocmask( )
+
+change the list of currently blocked signals
+how
+
+SIG_BLOCK
+The set of blocked signals is the union of the
+current set and the set argument.
+46
+
+POSIX signal functions
+SIG_UNBLOCK
+The signals in set are removed from the
+current set of blocked signals
+It is legal to attempt to unblock a signal which
+is not blocked
+SIG_SETMASK
+The set of blocked signals is set to the
+argument set.
+
+oldset
+
+if non-null, the previous value of the signal mask
+is stored in oldset
+
+It is not possible to block SIGKILL or SIGSTOP
+with the sigprocmask call
+
+47
+
+POSIX signal functions
+sigpending( )
+
+examine the pending signals
+the signal mask of pending signals is stored in set
+
+sigsuspend( )
+
+temporarily replaces the signal mask for the
+process with that given by mask and then
+suspends the process until a signal is received
+
+return value
+
+sigaction, sigprocmask, sigpending and
+sigsuspend return 0 on success and -1 on error.
+
+48
+
+sigsetjmp, siglongjmp
+synopsis
+
+#include <setjmp.h> 
+int sigsetjmp(sigjmp_buf env, int savemask);
+void siglongjmp(sigjmp_buf env, int val);
+
+description
+
+if savemask is nonzero then sigsetjmp() also
+saves the current signal mask in env.
+when siglongjmp() is called, if the env was saved, 
+then siglongjmp() restores the saved signal
+mask.
+49
